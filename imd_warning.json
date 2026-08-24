@@ -1,0 +1,11 @@
+{
+    "active": true,
+    "severity": "orange",
+    "source_color": "#FFA500",
+    "severity_label": "alert",
+    "title": "IMD Weather Warning",
+    "description": "KHORDHA : Very Heavy Rain Thunderstorm & Lightning, Squall etc Updated on:2026-08-23",
+    "affected_area": "Khordha",
+    "district_id": 174,
+    "source": "IMD"
+}
