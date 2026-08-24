@@ -333,8 +333,14 @@ def current_weather(
                     "All current-weather providers failed",
                 "open_meteo_status":
                     result.get("status_code"),
+                "open_meteo_message":
+                    result.get("message"),
                 "weatherapi_status":
-                    weatherapi.get("status_code")
+                    weatherapi.get("status_code"),
+                "weatherapi_error":
+                    weatherapi.get("error"),
+                "weatherapi_message":
+                    weatherapi.get("message")
             }
 
         location_data = get_location_metadata(
@@ -866,8 +872,14 @@ def weather_forecast(
                     "All forecast providers failed",
                 "open_meteo_status":
                     result.get("status_code"),
+                "open_meteo_message":
+                    result.get("message"),
                 "weatherapi_status":
-                    fallback.get("status_code")
+                    fallback.get("status_code"),
+                "weatherapi_error":
+                    fallback.get("error"),
+                "weatherapi_message":
+                    fallback.get("message")
             }
 
         location_data = get_location_metadata(
