@@ -1123,13 +1123,11 @@ def weather_nwp(
     params = {
         "latitude": lat,
         "longitude": lon,
-
         "daily": (
             "temperature_2m_max,"
             "precipitation_sum,"
             "wind_speed_10m_max"
         ),
-
         "timezone": "auto"
     }
 
@@ -1140,14 +1138,18 @@ def weather_nwp(
 
     if result.get("error"):
         return {
-            "error":
-                "GFS request failed",
+            "available": False,
+            "error": "GFS request failed",
             "status_code":
                 result.get("status_code"),
+            "message":
+                result.get("message"),
             "latency_seconds":
                 result.get("latency_seconds"),
-            "message":
-                result.get("message")
+            "from_cache":
+                result.get("from_cache", False),
+            "cache_age_seconds":
+                result.get("cache_age_seconds", 0)
         }
 
     data = result["data"]
@@ -1168,6 +1170,8 @@ def weather_nwp(
     )
 
     return {
+        "available": True,
+
         "location":
             location_data,
 
@@ -1535,9 +1539,6 @@ def complete_weather(
     if "error" in current:
         return current
 
-    if "error" in nwp:
-        return nwp
-
     if "error" in air_quality_data:
         return air_quality_data
 
@@ -1579,7 +1580,10 @@ def complete_weather(
             ),
 
         "model_forecasts":
-            nwp["model_forecasts"],
+            nwp.get(
+                "model_forecasts",
+                {}
+            ),
 
         "warnings":
             warnings.get(
@@ -1626,7 +1630,13 @@ def complete_weather(
                 ),
 
             "GFS":
-                nwp["model_forecasts"]["GFS"],
+                nwp.get(
+                    "model_forecasts",
+                    {}
+                ).get(
+                    "GFS",
+                    {}
+                ),
 
             "AirQuality":
                 air_quality_data["air_quality"]
@@ -1676,8 +1686,12 @@ def complete_weather(
                     ),
 
                 "GFS":
-                    nwp["metadata"]
-                    ["request_latency_seconds"],
+                    nwp.get(
+                        "metadata",
+                        {}
+                    ).get(
+                        "request_latency_seconds"
+                    ),
 
                 "AirQuality":
                     air_quality_data["metadata"]
@@ -1699,8 +1713,13 @@ def complete_weather(
                     ),
 
                 "GFS":
-                    nwp["metadata"]
-                    ["from_cache"],
+                    nwp.get(
+                        "metadata",
+                        {}
+                    ).get(
+                        "from_cache",
+                        False
+                    ),
 
                 "AirQuality":
                     air_quality_data["metadata"]
@@ -1746,6 +1765,22 @@ def complete_weather(
                     "fallback_reason"
                 ),
 
+            "nwp_available":
+                nwp.get(
+                    "available",
+                    False
+                ),
+
+            "nwp_provider_error":
+                nwp.get(
+                    "error"
+                ),
+
+            "nwp_status_code":
+                nwp.get(
+                    "status_code"
+                ),
+
             "warning_timestamps_missing":
                 warnings.get(
                     "data_quality",
@@ -1755,4 +1790,4 @@ def complete_weather(
                     True
                 )
         }
-    }
+    }       
