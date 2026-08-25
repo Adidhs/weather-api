@@ -5,20 +5,23 @@ import os
 import time
 from datetime import datetime
 
+
 app = FastAPI(
     title="Weather Standardized API",
     version="1.0"
 )
+
 
 # ============================================================
 # CACHE
 # ============================================================
 
 CACHE = {}
-CACHE_TTL = 300
+CACHE_TTL = 300  # 5 minutes
 
 
 def cached_request(url, params=None, headers=None):
+
     key = (
         url,
         tuple(sorted((params or {}).items())),
@@ -28,10 +31,12 @@ def cached_request(url, params=None, headers=None):
     now = time.time()
 
     if key in CACHE:
+
         cached = CACHE[key]
         age = now - cached["time"]
 
         if age < CACHE_TTL:
+
             return {
                 "data": cached["data"],
                 "latency_seconds": 0,
@@ -44,28 +49,32 @@ def cached_request(url, params=None, headers=None):
     start = time.time()
 
     try:
+
         response = requests.get(
             url,
             params=params,
             headers=headers,
             timeout=30
         )
+
     except requests.RequestException as e:
+
         return {
             "error": True,
             "status_code": None,
             "message": str(e),
-            "latency_seconds": round(
-                time.time() - start, 3
-            ),
+            "latency_seconds":
+                round(time.time() - start, 3),
             "from_cache": False
         }
 
     latency = round(
-        time.time() - start, 3
+        time.time() - start,
+        3
     )
 
     if response.status_code != 200:
+
         return {
             "error": True,
             "status_code": response.status_code,
@@ -74,8 +83,11 @@ def cached_request(url, params=None, headers=None):
         }
 
     try:
+
         data = response.json()
+
     except ValueError:
+
         return {
             "error": True,
             "status_code": response.status_code,
@@ -102,57 +114,85 @@ def cached_request(url, params=None, headers=None):
 # ============================================================
 
 def weather_condition(code):
+
     conditions = {
+
         0: "Clear sky",
         1: "Mainly clear",
         2: "Partly cloudy",
         3: "Overcast",
+
         45: "Fog",
         48: "Depositing rime fog",
+
         51: "Light drizzle",
         53: "Moderate drizzle",
         55: "Dense drizzle",
+
         56: "Light freezing drizzle",
         57: "Dense freezing drizzle",
+
         61: "Light rain",
         63: "Moderate rain",
         65: "Heavy rain",
+
         66: "Light freezing rain",
         67: "Heavy freezing rain",
+
         71: "Light snow",
         73: "Moderate snow",
         75: "Heavy snow",
+
         77: "Snow grains",
+
         80: "Light rain showers",
         81: "Moderate rain showers",
         82: "Violent rain showers",
+
         85: "Light snow showers",
         86: "Heavy snow showers",
+
         95: "Thunderstorm",
         96: "Thunderstorm with light hail",
         99: "Thunderstorm with heavy hail"
     }
 
-    return conditions.get(code, "Unknown")
+    return conditions.get(
+        code,
+        "Unknown"
+    )
 
 
 # ============================================================
-# LOCATION
+# LOCATION METADATA
 # ============================================================
 
-def get_location_metadata(lat: float, lon: float):
-    url = "https://nominatim.openstreetmap.org/reverse"
+def get_location_metadata(
+    lat: float,
+    lon: float
+):
+
+    url = (
+        "https://nominatim.openstreetmap.org/"
+        "reverse"
+    )
 
     params = {
+
         "lat": lat,
         "lon": lon,
+
         "format": "jsonv2",
+
         "addressdetails": 1,
+
         "accept-language": "en"
     }
 
     headers = {
-        "User-Agent": "WeatherGPT-Data-API/1.0"
+
+        "User-Agent":
+            "WeatherGPT-Data-API/1.0"
     }
 
     result = cached_request(
@@ -162,9 +202,12 @@ def get_location_metadata(lat: float, lon: float):
     )
 
     if result.get("error"):
+
         return {
+
             "latitude": lat,
             "longitude": lon,
+
             "city": None,
             "district": None,
             "state": None,
@@ -172,27 +215,44 @@ def get_location_metadata(lat: float, lon: float):
         }
 
     data = result["data"]
-    address = data.get("address", {})
+
+    address = data.get(
+        "address",
+        {}
+    )
 
     city = (
+
         address.get("city")
+
         or address.get("town")
+
         or address.get("village")
+
         or address.get("municipality")
     )
 
     district = (
+
         address.get("state_district")
+
         or address.get("county")
     )
 
     return {
+
         "latitude": lat,
         "longitude": lon,
+
         "city": city,
+
         "district": district,
-        "state": address.get("state"),
-        "country": address.get("country")
+
+        "state":
+            address.get("state"),
+
+        "country":
+            address.get("country")
     }
 
 
@@ -202,36 +262,64 @@ def get_location_metadata(lat: float, lon: float):
 
 @app.get("/")
 def home():
+
     return {
-        "message": "Weather API is running"
+
+        "message":
+            "Weather API is running"
     }
 
 
+# ============================================================
+# LOCATION
+# ============================================================
+
 @app.get("/api/v1/location")
 def location(
+
     lat: float = Query(...),
     lon: float = Query(...)
 ):
-    return get_location_metadata(lat, lon)
+
+    return get_location_metadata(
+        lat,
+        lon
+    )
 
 
 # ============================================================
 # WEATHERAPI CURRENT
 # ============================================================
 
-def get_weatherapi_current(lat: float, lon: float):
-    api_key = os.getenv("WEATHER_API_KEY")
+def get_weatherapi_current(
+    lat: float,
+    lon: float
+):
+
+    api_key = os.getenv(
+        "WEATHER_API_KEY"
+    )
 
     if not api_key:
+
         return {
-            "error": "WEATHER_API_KEY is not set"
+
+            "error":
+                "WEATHER_API_KEY is not set"
         }
 
-    url = "https://api.weatherapi.com/v1/current.json"
+    url = (
+        "https://api.weatherapi.com/"
+        "v1/current.json"
+    )
 
     params = {
-        "key": api_key,
-        "q": f"{lat},{lon}"
+
+        "key":
+            api_key,
+
+        "q":
+            f"{lat},{lon}"
     }
 
     result = cached_request(
@@ -240,39 +328,79 @@ def get_weatherapi_current(lat: float, lon: float):
     )
 
     if result.get("error"):
+
         return {
-            "error": "WeatherAPI request failed",
-            "status_code": result.get("status_code"),
+
+            "error":
+                "WeatherAPI request failed",
+
+            "status_code":
+                result.get(
+                    "status_code"
+                ),
+
             "latency_seconds":
-                result.get("latency_seconds"),
+                result.get(
+                    "latency_seconds"
+                ),
+
             "message":
-                result.get("message")
+                result.get(
+                    "message"
+                )
         }
 
     data = result["data"]
+
     current = data["current"]
 
     return {
+
         "values": {
-            "temperature_c": current["temp_c"],
-            "humidity_pct": current["humidity"],
-            "pressure_hpa": current["pressure_mb"],
-            "wind_speed_kmh": current["wind_kph"],
-            "wind_direction_deg": current["wind_degree"],
-            "precipitation_mm": current["precip_mm"],
-            "cloud_cover_pct": current["cloud"],
-            "feels_like_c": current["feelslike_c"],
-            "visibility_km": current["vis_km"],
-            "uv_index": current["uv"]
+
+            "temperature_c":
+                current["temp_c"],
+
+            "humidity_pct":
+                current["humidity"],
+
+            "pressure_hpa":
+                current["pressure_mb"],
+
+            "wind_speed_kmh":
+                current["wind_kph"],
+
+            "wind_direction_deg":
+                current["wind_degree"],
+
+            "precipitation_mm":
+                current["precip_mm"],
+
+            "cloud_cover_pct":
+                current["cloud"],
+
+            "feels_like_c":
+                current["feelslike_c"],
+
+            "visibility_km":
+                current["vis_km"],
+
+            "uv_index":
+                current["uv"]
         },
+
         "latency_seconds":
             result["latency_seconds"],
+
         "observed_at":
             current["last_updated"],
+
         "source":
             "WeatherAPI",
+
         "from_cache":
             result["from_cache"],
+
         "cache_age_seconds":
             result["cache_age_seconds"]
     }
@@ -282,18 +410,27 @@ def get_weatherapi_current(lat: float, lon: float):
 # CURRENT WEATHER
 # ============================================================
 
-@app.get("/api/v1/weather/current")
+@app.get(
+    "/api/v1/weather/current"
+)
 def current_weather(
+
     lat: float = Query(...),
     lon: float = Query(...)
 ):
 
-    url = "https://api.open-meteo.com/v1/forecast"
+    url = (
+        "https://api.open-meteo.com/"
+        "v1/forecast"
+    )
 
     params = {
+
         "latitude": lat,
         "longitude": lon,
+
         "current": (
+
             "temperature_2m,"
             "relative_humidity_2m,"
             "apparent_temperature,"
@@ -308,8 +445,12 @@ def current_weather(
             "dew_point_2m,"
             "weather_code"
         ),
-        "hourly": "precipitation",
-        "timezone": "auto"
+
+        "hourly":
+            "precipitation",
+
+        "timezone":
+            "auto"
     }
 
     result = cached_request(
@@ -322,147 +463,257 @@ def current_weather(
     # --------------------------------------------------------
 
     if result.get("error"):
+
         weatherapi = get_weatherapi_current(
             lat,
             lon
         )
 
         if weatherapi.get("error"):
+
             return {
+
                 "error":
                     "All current-weather providers failed",
+
                 "open_meteo_status":
-                    result.get("status_code"),
-                "open_meteo_message":
-                    result.get("message"),
+                    result.get(
+                        "status_code"
+                    ),
+
                 "weatherapi_status":
-                    weatherapi.get("status_code"),
-                "weatherapi_error":
-                    weatherapi.get("error"),
-                "weatherapi_message":
-                    weatherapi.get("message")
+                    weatherapi.get(
+                        "status_code"
+                    )
             }
 
-        location_data = get_location_metadata(
-            lat,
-            lon
+        location_data = (
+            get_location_metadata(
+                lat,
+                lon
+            )
         )
 
         values = weatherapi["values"]
 
         return {
-            "location": location_data,
+
+            "location":
+                location_data,
 
             "metadata": {
+
                 "generated_at":
-                    weatherapi["observed_at"],
-                "source": "WeatherAPI",
-                "source_type": "observation",
+                    weatherapi[
+                        "observed_at"
+                    ],
+
+                "source":
+                    "WeatherAPI",
+
+                "source_type":
+                    "observation",
+
                 "retrieved_at":
                     datetime.now()
                     .astimezone()
                     .isoformat(),
+
                 "request_latency_seconds":
-                    weatherapi["latency_seconds"],
+                    weatherapi[
+                        "latency_seconds"
+                    ],
+
                 "from_cache":
-                    weatherapi["from_cache"],
+                    weatherapi.get(
+                        "from_cache",
+                        False
+                    ),
+
                 "cache_age_seconds":
-                    weatherapi["cache_age_seconds"],
-                "fallback": True,
-                "fallback_reason": (
-                    "Open-Meteo request failed "
-                    f"with status "
-                    f"{result.get('status_code')}"
-                )
+                    weatherapi.get(
+                        "cache_age_seconds",
+                        0
+                    ),
+
+                "fallback":
+                    True,
+
+                "fallback_reason":
+                    (
+                        "Open-Meteo request failed "
+                        f"with status "
+                        f"{result.get('status_code')}"
+                    )
             },
 
             "current_weather": {
+
                 "temperature": {
+
                     "value":
-                        values["temperature_c"],
-                    "unit": "C"
+                        values[
+                            "temperature_c"
+                        ],
+
+                    "unit":
+                        "C"
                 },
 
                 "feels_like": {
+
                     "value":
-                        values["feels_like_c"],
-                    "unit": "C"
+                        values[
+                            "feels_like_c"
+                        ],
+
+                    "unit":
+                        "C"
                 },
 
                 "humidity": {
+
                     "value":
-                        values["humidity_pct"],
-                    "unit": "%"
+                        values[
+                            "humidity_pct"
+                        ],
+
+                    "unit":
+                        "%"
                 },
 
                 "pressure": {
+
                     "value":
-                        values["pressure_hpa"],
-                    "unit": "hPa"
+                        values[
+                            "pressure_hpa"
+                        ],
+
+                    "unit":
+                        "hPa"
                 },
 
                 "wind": {
+
                     "speed":
-                        values["wind_speed_kmh"],
-                    "gust": None,
+                        values[
+                            "wind_speed_kmh"
+                        ],
+
+                    "gust":
+                        None,
+
                     "direction":
-                        values["wind_direction_deg"],
-                    "unit": "km/h"
+                        values[
+                            "wind_direction_deg"
+                        ],
+
+                    "unit":
+                        "km/h"
                 },
 
                 "precipitation": {
+
                     "last_1h_mm":
-                        values["precipitation_mm"],
-                    "last_3h_mm": None,
-                    "last_6h_mm": None,
-                    "last_24h_mm": None
+                        values[
+                            "precipitation_mm"
+                        ],
+
+                    "last_3h_mm":
+                        None,
+
+                    "last_6h_mm":
+                        None,
+
+                    "last_24h_mm":
+                        None
                 },
 
                 "cloud_cover": {
+
                     "value":
-                        values["cloud_cover_pct"],
-                    "unit": "%"
+                        values[
+                            "cloud_cover_pct"
+                        ],
+
+                    "unit":
+                        "%"
                 },
 
                 "visibility": {
+
                     "value":
-                        values["visibility_km"],
-                    "unit": "km"
+                        values[
+                            "visibility_km"
+                        ],
+
+                    "unit":
+                        "km"
                 },
 
                 "uv_index":
                     values["uv_index"],
 
                 "dew_point": {
-                    "value": None,
-                    "unit": "C"
+
+                    "value":
+                        None,
+
+                    "unit":
+                        "C"
                 },
 
-                "weather_code": None,
-                "weather_condition": None
+                "weather_code":
+                    None,
+
+                "weather_condition":
+                    None
             },
 
             "source_values": {
-                "WeatherAPI": values
+
+                "WeatherAPI":
+                    values
             },
 
             "data_quality": {
+
                 "missing_parameters": [
+
                     "wind.gust",
+
                     "precipitation.last_3h_mm",
+
                     "precipitation.last_6h_mm",
+
                     "precipitation.last_24h_mm",
+
                     "dew_point",
+
                     "weather_code"
                 ],
+
                 "request_latency_seconds":
-                    weatherapi["latency_seconds"],
+                    weatherapi[
+                        "latency_seconds"
+                    ],
+
                 "from_cache":
-                    weatherapi["from_cache"],
-                "fallback_used": True,
-                "fallback_source": "WeatherAPI",
+                    weatherapi.get(
+                        "from_cache",
+                        False
+                    ),
+
+                "fallback_used":
+                    True,
+
+                "fallback_source":
+                    "WeatherAPI",
+
                 "open_meteo_status":
-                    result.get("status_code")
+                    result.get(
+                        "status_code"
+                    )
             }
         }
 
@@ -471,25 +722,38 @@ def current_weather(
     # --------------------------------------------------------
 
     data = result["data"]
+
     current = data["current"]
-    hourly = data["hourly"]
 
-    latency = result["latency_seconds"]
+    hourly_precipitation = (
+        data["hourly"]["precipitation"]
+    )
 
-    hourly_precipitation = hourly["precipitation"]
-    hourly_times = hourly["time"]
+    hourly_times = (
+        data["hourly"]["time"]
+    )
+
+    latency = (
+        result["latency_seconds"]
+    )
 
     current_time = datetime.fromisoformat(
         current["time"]
     )
 
     current_index = min(
-        range(len(hourly_times)),
-        key=lambda i: abs(
-            datetime.fromisoformat(
-                hourly_times[i]
-            ) - current_time
-        )
+
+        range(
+            len(hourly_times)
+        ),
+
+        key=lambda i:
+            abs(
+                datetime.fromisoformat(
+                    hourly_times[i]
+                )
+                - current_time
+            )
     )
 
     rain_1h = sum(
@@ -520,9 +784,11 @@ def current_weather(
         ]
     )
 
-    location_data = get_location_metadata(
-        lat,
-        lon
+    location_data = (
+        get_location_metadata(
+            lat,
+            lon
+        )
     )
 
     location_data["timezone"] = (
@@ -533,133 +799,268 @@ def current_weather(
         data["elevation"]
     )
 
+    open_meteo_values = {
+
+        "temperature_c":
+            current[
+                "temperature_2m"
+            ],
+
+        "humidity_pct":
+            current[
+                "relative_humidity_2m"
+            ],
+
+        "pressure_hpa":
+            current[
+                "pressure_msl"
+            ],
+
+        "wind_speed_kmh":
+            current[
+                "wind_speed_10m"
+            ],
+
+        "wind_direction_deg":
+            current[
+                "wind_direction_10m"
+            ],
+
+        "precipitation_mm":
+            current[
+                "precipitation"
+            ],
+
+        "cloud_cover_pct":
+            current[
+                "cloud_cover"
+            ],
+
+        "feels_like_c":
+            current[
+                "apparent_temperature"
+            ],
+
+        "visibility_km":
+            current[
+                "visibility"
+            ] / 1000,
+
+        "uv_index":
+            current[
+                "uv_index"
+            ]
+    }
+
     return {
+
         "location":
             location_data,
 
         "metadata": {
+
             "generated_at":
                 current["time"],
+
             "source":
                 "Open-Meteo",
+
             "source_type":
                 "observation",
+
             "retrieved_at":
                 datetime.now()
                 .astimezone()
                 .isoformat(),
+
             "request_latency_seconds":
                 latency,
+
             "from_cache":
-                result["from_cache"],
+                result[
+                    "from_cache"
+                ],
+
             "cache_age_seconds":
-                result["cache_age_seconds"],
-            "fallback": False
+                result[
+                    "cache_age_seconds"
+                ],
+
+            "fallback":
+                False
         },
 
         "current_weather": {
 
             "temperature": {
+
                 "value":
-                    current["temperature_2m"],
-                "unit": "C"
+                    current[
+                        "temperature_2m"
+                    ],
+
+                "unit":
+                    "C"
             },
 
             "feels_like": {
+
                 "value":
-                    current["apparent_temperature"],
-                "unit": "C"
+                    current[
+                        "apparent_temperature"
+                    ],
+
+                "unit":
+                    "C"
             },
 
             "humidity": {
+
                 "value":
-                    current["relative_humidity_2m"],
-                "unit": "%"
+                    current[
+                        "relative_humidity_2m"
+                    ],
+
+                "unit":
+                    "%"
             },
 
             "pressure": {
+
                 "value":
-                    current["pressure_msl"],
-                "unit": "hPa"
+                    current[
+                        "pressure_msl"
+                    ],
+
+                "unit":
+                    "hPa"
             },
 
             "wind": {
+
                 "speed":
-                    current["wind_speed_10m"],
+                    current[
+                        "wind_speed_10m"
+                    ],
+
                 "gust":
-                    current["wind_gusts_10m"],
+                    current[
+                        "wind_gusts_10m"
+                    ],
+
                 "direction":
-                    current["wind_direction_10m"],
-                "unit": "km/h"
+                    current[
+                        "wind_direction_10m"
+                    ],
+
+                "unit":
+                    "km/h"
             },
 
             "precipitation": {
+
                 "last_1h_mm":
-                    round(rain_1h, 2),
+                    round(
+                        rain_1h,
+                        2
+                    ),
+
                 "last_3h_mm":
-                    round(rain_3h, 2),
+                    round(
+                        rain_3h,
+                        2
+                    ),
+
                 "last_6h_mm":
-                    round(rain_6h, 2),
+                    round(
+                        rain_6h,
+                        2
+                    ),
+
                 "last_24h_mm":
-                    round(rain_24h, 2)
+                    round(
+                        rain_24h,
+                        2
+                    )
             },
 
             "cloud_cover": {
+
                 "value":
-                    current["cloud_cover"],
-                "unit": "%"
+                    current[
+                        "cloud_cover"
+                    ],
+
+                "unit":
+                    "%"
             },
 
             "visibility": {
+
                 "value":
-                    current["visibility"] / 1000,
-                "unit": "km"
+                    current[
+                        "visibility"
+                    ] / 1000,
+
+                "unit":
+                    "km"
             },
 
             "uv_index":
-                current["uv_index"],
+                current[
+                    "uv_index"
+                ],
 
             "dew_point": {
+
                 "value":
-                    current["dew_point_2m"],
-                "unit": "C"
+                    current[
+                        "dew_point_2m"
+                    ],
+
+                "unit":
+                    "C"
             },
 
             "weather_code":
-                current["weather_code"],
+                current[
+                    "weather_code"
+                ],
 
             "weather_condition":
                 weather_condition(
-                    current["weather_code"]
+                    current[
+                        "weather_code"
+                    ]
                 )
         },
 
         "source_values": {
-            "Open-Meteo": {
-                "temperature_c":
-                    current["temperature_2m"],
-                "humidity_pct":
-                    current["relative_humidity_2m"],
-                "pressure_hpa":
-                    current["pressure_msl"],
-                "wind_speed_kmh":
-                    current["wind_speed_10m"]
-            }
+
+            "Open-Meteo":
+                open_meteo_values
         },
 
         "data_quality": {
+
             "missing_parameters": [],
+
             "request_latency_seconds":
                 latency,
+
             "from_cache":
-                result["from_cache"],
-            "fallback_used": False
+                result[
+                    "from_cache"
+                ],
+
+            "fallback_used":
+                False
         }
     }
 
 
 # ============================================================
-# WEATHERAPI FORECAST FALLBACK
+# WEATHERAPI FORECAST
 # ============================================================
 
 def get_weatherapi_forecast(
@@ -672,7 +1073,9 @@ def get_weatherapi_forecast(
     )
 
     if not api_key:
+
         return {
+
             "error":
                 "WEATHER_API_KEY is not set"
         }
@@ -683,11 +1086,21 @@ def get_weatherapi_forecast(
     )
 
     params = {
-        "key": api_key,
-        "q": f"{lat},{lon}",
-        "days": 3,
-        "aqi": "no",
-        "alerts": "no"
+
+        "key":
+            api_key,
+
+        "q":
+            f"{lat},{lon}",
+
+        "days":
+            3,
+
+        "aqi":
+            "no",
+
+        "alerts":
+            "no"
     }
 
     result = cached_request(
@@ -696,26 +1109,47 @@ def get_weatherapi_forecast(
     )
 
     if result.get("error"):
+
         return {
+
             "error":
                 "WeatherAPI forecast request failed",
+
             "status_code":
-                result.get("status_code"),
+                result.get(
+                    "status_code"
+                ),
+
             "latency_seconds":
-                result.get("latency_seconds"),
+                result.get(
+                    "latency_seconds"
+                ),
+
             "message":
-                result.get("message")
+                result.get(
+                    "message"
+                )
         }
 
     return {
+
         "data":
             result["data"],
+
         "latency_seconds":
-            result["latency_seconds"],
+            result[
+                "latency_seconds"
+            ],
+
         "from_cache":
-            result["from_cache"],
+            result[
+                "from_cache"
+            ],
+
         "cache_age_seconds":
-            result["cache_age_seconds"]
+            result[
+                "cache_age_seconds"
+            ]
     }
 
 
@@ -723,42 +1157,75 @@ def get_weatherapi_forecast(
 # CONVERT WEATHERAPI FORECAST
 # ============================================================
 
-def convert_weatherapi_forecast(data):
+def convert_weatherapi_forecast(
+    data
+):
 
     forecast_days = (
-        data["forecast"]["forecastday"]
+        data[
+            "forecast"
+        ][
+            "forecastday"
+        ]
     )
 
     hourly_forecast = []
 
     for day in forecast_days:
+
         for hour in day["hour"]:
 
             hourly_forecast.append({
+
                 "timestamp":
                     hour["time"],
+
                 "temperature_c":
                     hour["temp_c"],
+
                 "humidity_pct":
                     hour["humidity"],
+
                 "precipitation_mm":
                     hour["precip_mm"],
+
                 "rain_probability_pct":
-                    hour["chance_of_rain"],
+                    hour[
+                        "chance_of_rain"
+                    ],
+
                 "wind_speed_kmh":
-                    hour["wind_kph"],
+                    hour[
+                        "wind_kph"
+                    ],
+
                 "wind_gust_kmh":
-                    hour["gust_kph"],
+                    hour[
+                        "gust_kph"
+                    ],
+
                 "wind_direction_deg":
-                    hour["wind_degree"],
+                    hour[
+                        "wind_degree"
+                    ],
+
                 "cloud_cover_pct":
                     hour["cloud"],
+
                 "visibility_km":
                     hour["vis_km"],
+
                 "dew_point_c":
-                    hour["dewpoint_c"],
+                    hour[
+                        "dewpoint_c"
+                    ],
+
                 "weather_condition":
-                    hour["condition"]["text"]
+                    hour[
+                        "condition"
+                    ][
+                        "text"
+                    ]
             })
 
     daily_forecast = []
@@ -768,41 +1235,65 @@ def convert_weatherapi_forecast(data):
         day_data = day["day"]
 
         daily_forecast.append({
+
             "date":
                 day["date"],
 
             "temperature": {
+
                 "min_c":
-                    day_data["mintemp_c"],
+                    day_data[
+                        "mintemp_c"
+                    ],
+
                 "max_c":
-                    day_data["maxtemp_c"]
+                    day_data[
+                        "maxtemp_c"
+                    ]
             },
 
             "rain_probability_pct":
-                day_data["daily_chance_of_rain"],
+                day_data[
+                    "daily_chance_of_rain"
+                ],
 
             "precipitation_mm":
-                day_data["totalprecip_mm"],
+                day_data[
+                    "totalprecip_mm"
+                ],
 
             "wind": {
+
                 "max_speed_kmh":
-                    day_data["maxwind_kph"],
+                    day_data[
+                        "maxwind_kph"
+                    ],
+
                 "max_gust_kmh":
                     None,
+
                 "dominant_direction_deg":
                     None
             },
 
             "uv_index_max":
-                day_data["uv"],
+                day_data[
+                    "uv"
+                ],
 
             "weather_condition":
-                day_data["condition"]["text"]
+                day_data[
+                    "condition"
+                ][
+                    "text"
+                ]
         })
 
     return {
+
         "hourly":
             hourly_forecast,
+
         "daily":
             daily_forecast
     }
@@ -812,19 +1303,30 @@ def convert_weatherapi_forecast(data):
 # FORECAST
 # ============================================================
 
-@app.get("/api/v1/weather/forecast")
+@app.get(
+    "/api/v1/weather/forecast"
+)
 def weather_forecast(
+
     lat: float = Query(...),
     lon: float = Query(...)
 ):
 
-    url = "https://api.open-meteo.com/v1/forecast"
+    url = (
+        "https://api.open-meteo.com/"
+        "v1/forecast"
+    )
 
     params = {
-        "latitude": lat,
-        "longitude": lon,
+
+        "latitude":
+            lat,
+
+        "longitude":
+            lon,
 
         "hourly": (
+
             "temperature_2m,"
             "relative_humidity_2m,"
             "precipitation,"
@@ -839,6 +1341,7 @@ def weather_forecast(
         ),
 
         "daily": (
+
             "temperature_2m_min,"
             "temperature_2m_max,"
             "precipitation_sum,"
@@ -850,7 +1353,8 @@ def weather_forecast(
             "weather_code"
         ),
 
-        "timezone": "auto"
+        "timezone":
+            "auto"
     }
 
     result = cached_request(
@@ -858,91 +1362,138 @@ def weather_forecast(
         params=params
     )
 
+    # --------------------------------------------------------
+    # OPEN-METEO FAILED -> WEATHERAPI FALLBACK
+    # --------------------------------------------------------
+
     if result.get("error"):
 
-        fallback = get_weatherapi_forecast(
-            lat,
-            lon
+        fallback = (
+            get_weatherapi_forecast(
+                lat,
+                lon
+            )
         )
 
         if fallback.get("error"):
 
             return {
+
                 "error":
                     "All forecast providers failed",
+
                 "open_meteo_status":
-                    result.get("status_code"),
-                "open_meteo_message":
-                    result.get("message"),
+                    result.get(
+                        "status_code"
+                    ),
+
                 "weatherapi_status":
-                    fallback.get("status_code"),
-                "weatherapi_error":
-                    fallback.get("error"),
-                "weatherapi_message":
-                    fallback.get("message")
+                    fallback.get(
+                        "status_code"
+                    )
             }
 
-        location_data = get_location_metadata(
-            lat,
-            lon
+        location_data = (
+            get_location_metadata(
+                lat,
+                lon
+            )
+        )
+
+        forecast_data = (
+            convert_weatherapi_forecast(
+                fallback["data"]
+            )
         )
 
         return {
+
             "location":
                 location_data,
 
             "metadata": {
+
                 "source":
                     "WeatherAPI",
+
                 "source_type":
                     "forecast",
-                "fallback": True,
-                "fallback_reason": (
-                    "Open-Meteo request failed "
-                    "with status "
-                    f"{result.get('status_code')}"
-                ),
+
+                "fallback":
+                    True,
+
+                "fallback_reason":
+                    (
+                        "Open-Meteo request failed "
+                        "with status "
+                        f"{result.get('status_code')}"
+                    ),
+
                 "retrieved_at":
                     datetime.now()
                     .astimezone()
                     .isoformat(),
+
                 "request_latency_seconds":
-                    fallback["latency_seconds"],
+                    fallback[
+                        "latency_seconds"
+                    ],
+
                 "from_cache":
-                    fallback["from_cache"],
+                    fallback[
+                        "from_cache"
+                    ],
+
                 "cache_age_seconds":
-                    fallback["cache_age_seconds"]
+                    fallback[
+                        "cache_age_seconds"
+                    ]
             },
 
             "forecast":
-                convert_weatherapi_forecast(
-                    fallback["data"]
-                ),
+                forecast_data,
 
             "data_quality": {
-                "missing_parameters": [
-                    "daily.max_gust_kmh",
-                    "daily.dominant_direction_deg"
-                ],
+
+                "missing_parameters": [],
+
                 "forecast_source":
                     "WeatherAPI",
+
                 "open_meteo_failed":
                     True,
+
                 "open_meteo_status":
-                    result.get("status_code"),
+                    result.get(
+                        "status_code"
+                    ),
+
                 "fallback_used":
                     True
             }
         }
 
-    data = result["data"]
-    hourly = data["hourly"]
-    daily = data["daily"]
-    latency = result["latency_seconds"]
+    # --------------------------------------------------------
+    # OPEN-METEO SUCCESS
+    # --------------------------------------------------------
 
-    location_data = get_location_metadata(
-        lat,
-        lon
+    data = result["data"]
+
+    hourly = data["hourly"]
+
+    daily = data["daily"]
+
+    latency = (
+        result[
+            "latency_seconds"
+        ]
+    )
+
+    location_data = (
+        get_location_metadata(
+            lat,
+            lon
+        )
     )
 
     location_data["timezone"] = (
@@ -955,20 +1506,31 @@ def weather_forecast(
 
     hourly_forecast = []
 
-    for i in range(len(hourly["time"])):
+    for i in range(
+        len(hourly["time"])
+    ):
 
         hourly_forecast.append({
+
             "timestamp":
-                hourly["time"][i],
+                hourly[
+                    "time"
+                ][i],
 
             "temperature_c":
-                hourly["temperature_2m"][i],
+                hourly[
+                    "temperature_2m"
+                ][i],
 
             "humidity_pct":
-                hourly["relative_humidity_2m"][i],
+                hourly[
+                    "relative_humidity_2m"
+                ][i],
 
             "precipitation_mm":
-                hourly["precipitation"][i],
+                hourly[
+                    "precipitation"
+                ][i],
 
             "rain_probability_pct":
                 hourly[
@@ -976,45 +1538,68 @@ def weather_forecast(
                 ][i],
 
             "wind_speed_kmh":
-                hourly["wind_speed_10m"][i],
+                hourly[
+                    "wind_speed_10m"
+                ][i],
 
             "wind_gust_kmh":
-                hourly["wind_gusts_10m"][i],
+                hourly[
+                    "wind_gusts_10m"
+                ][i],
 
             "wind_direction_deg":
-                hourly["wind_direction_10m"][i],
+                hourly[
+                    "wind_direction_10m"
+                ][i],
 
             "cloud_cover_pct":
-                hourly["cloud_cover"][i],
+                hourly[
+                    "cloud_cover"
+                ][i],
 
             "visibility_km":
-                hourly["visibility"][i] / 1000,
+                hourly[
+                    "visibility"
+                ][i] / 1000,
 
             "dew_point_c":
-                hourly["dew_point_2m"][i],
+                hourly[
+                    "dew_point_2m"
+                ][i],
 
             "weather_code":
-                hourly["weather_code"][i],
+                hourly[
+                    "weather_code"
+                ][i],
 
             "weather_condition":
                 weather_condition(
-                    hourly["weather_code"][i]
+                    hourly[
+                        "weather_code"
+                    ][i]
                 )
         })
 
     daily_forecast = []
 
-    for i in range(len(daily["time"])):
+    for i in range(
+        len(daily["time"])
+    ):
 
         daily_forecast.append({
+
             "date":
-                daily["time"][i],
+                daily[
+                    "time"
+                ][i],
 
             "temperature": {
+
                 "min_c":
                     daily[
                         "temperature_2m_min"
                     ][i],
+
                 "max_c":
                     daily[
                         "temperature_2m_max"
@@ -1032,6 +1617,7 @@ def weather_forecast(
                 ][i],
 
             "wind": {
+
                 "max_speed_kmh":
                     daily[
                         "wind_speed_10m_max"
@@ -1049,22 +1635,30 @@ def weather_forecast(
             },
 
             "uv_index_max":
-                daily["uv_index_max"][i],
+                daily[
+                    "uv_index_max"
+                ][i],
 
             "weather_code":
-                daily["weather_code"][i],
+                daily[
+                    "weather_code"
+                ][i],
 
             "weather_condition":
                 weather_condition(
-                    daily["weather_code"][i]
+                    daily[
+                        "weather_code"
+                    ][i]
                 )
         })
 
     return {
+
         "location":
             location_data,
 
         "metadata": {
+
             "source":
                 "Open-Meteo",
 
@@ -1080,28 +1674,40 @@ def weather_forecast(
                 latency,
 
             "from_cache":
-                result["from_cache"],
+                result[
+                    "from_cache"
+                ],
 
             "cache_age_seconds":
-                result["cache_age_seconds"],
+                result[
+                    "cache_age_seconds"
+                ],
 
             "fallback":
                 False
         },
 
         "forecast": {
+
             "hourly":
                 hourly_forecast,
+
             "daily":
                 daily_forecast
         },
 
         "data_quality": {
+
             "missing_parameters": [],
+
             "request_latency_seconds":
                 latency,
+
             "from_cache":
-                result["from_cache"],
+                result[
+                    "from_cache"
+                ],
+
             "fallback_used":
                 False
         }
@@ -1112,23 +1718,37 @@ def weather_forecast(
 # NWP / GFS
 # ============================================================
 
-@app.get("/api/v1/weather/nwp")
+@app.get(
+    "/api/v1/weather/nwp"
+)
 def weather_nwp(
+
     lat: float = Query(...),
     lon: float = Query(...)
 ):
 
-    url = "https://api.open-meteo.com/v1/gfs"
+    url = (
+        "https://api.open-meteo.com/"
+        "v1/gfs"
+    )
 
     params = {
-        "latitude": lat,
-        "longitude": lon,
+
+        "latitude":
+            lat,
+
+        "longitude":
+            lon,
+
         "daily": (
+
             "temperature_2m_max,"
             "precipitation_sum,"
             "wind_speed_10m_max"
         ),
-        "timezone": "auto"
+
+        "timezone":
+            "auto"
     }
 
     result = cached_request(
@@ -1137,28 +1757,43 @@ def weather_nwp(
     )
 
     if result.get("error"):
+
         return {
-            "available": False,
-            "error": "GFS request failed",
+
+            "error":
+                "GFS request failed",
+
             "status_code":
-                result.get("status_code"),
-            "message":
-                result.get("message"),
+                result.get(
+                    "status_code"
+                ),
+
             "latency_seconds":
-                result.get("latency_seconds"),
-            "from_cache":
-                result.get("from_cache", False),
-            "cache_age_seconds":
-                result.get("cache_age_seconds", 0)
+                result.get(
+                    "latency_seconds"
+                ),
+
+            "message":
+                result.get(
+                    "message"
+                )
         }
 
     data = result["data"]
-    daily = data["daily"]
-    latency = result["latency_seconds"]
 
-    location_data = get_location_metadata(
-        lat,
-        lon
+    daily = data["daily"]
+
+    latency = (
+        result[
+            "latency_seconds"
+        ]
+    )
+
+    location_data = (
+        get_location_metadata(
+            lat,
+            lon
+        )
     )
 
     location_data["timezone"] = (
@@ -1170,40 +1805,56 @@ def weather_nwp(
     )
 
     return {
-        "available": True,
 
         "location":
             location_data,
 
         "metadata": {
+
             "source":
                 "GFS via Open-Meteo",
+
             "source_type":
                 "NWP",
+
             "retrieved_at":
                 datetime.now()
                 .astimezone()
                 .isoformat(),
+
             "request_latency_seconds":
                 latency,
+
             "from_cache":
-                result["from_cache"],
+                result[
+                    "from_cache"
+                ],
+
             "cache_age_seconds":
-                result["cache_age_seconds"]
+                result[
+                    "cache_age_seconds"
+                ]
         },
 
         "model_forecasts": {
+
             "GFS": {
+
                 "model_forecast_time":
-                    daily["time"][0],
+                    daily[
+                        "time"
+                    ][0],
+
                 "temperature_max_c":
                     daily[
                         "temperature_2m_max"
                     ][0],
+
                 "rainfall_24h_mm":
                     daily[
                         "precipitation_sum"
                     ][0],
+
                 "wind_max_kmh":
                     daily[
                         "wind_speed_10m_max"
@@ -1212,135 +1863,259 @@ def weather_nwp(
         },
 
         "data_quality": {
+
             "missing_parameters": [],
+
             "request_latency_seconds":
                 latency,
+
             "from_cache":
-                result["from_cache"]
+                result[
+                    "from_cache"
+                ]
         }
     }
 
 
 # ============================================================
-# IMD WARNINGS
+# NDMA SACHET WARNINGS
 # ============================================================
 
-@app.get("/api/v1/weather/warnings")
+@app.get(
+    "/api/v1/weather/warnings"
+)
 def weather_warnings(
+
     lat: float = Query(...),
     lon: float = Query(...)
 ):
 
-    location_data = get_location_metadata(
-        lat,
-        lon
+    location_data = (
+        get_location_metadata(
+            lat,
+            lon
+        )
     )
 
-    district = location_data.get(
-        "district"
+    # --------------------------------------------------------
+    # NDMA SACHET
+    # --------------------------------------------------------
+
+    url = (
+        "https://sachet.ndma.gov.in/"
+        "cap_public_website/"
+        "FetchLocationWiseAlerts"
     )
 
-    if not district:
+    params = {
+
+        "lat":
+            lat,
+
+        "long":
+            lon,
+
+        "radius":
+            20
+    }
+
+    result = cached_request(
+        url,
+        params=params
+    )
+
+    if result.get("error"):
+
         return {
+
             "location":
                 location_data,
 
             "metadata": {
+
                 "source":
-                    "IMD",
+                    "NDMA SACHET",
+
                 "source_type":
-                    "official_warning"
+                    "official_warning",
+
+                "retrieved_at":
+                    datetime.now()
+                    .astimezone()
+                    .isoformat(),
+
+                "request_latency_seconds":
+                    result.get(
+                        "latency_seconds"
+                    ),
+
+                "from_cache":
+                    result.get(
+                        "from_cache",
+                        False
+                    ),
+
+                "cache_age_seconds":
+                    result.get(
+                        "cache_age_seconds",
+                        0
+                    ),
+
+                "search_radius_km":
+                    20
             },
 
             "warnings": [],
 
             "data_quality": {
+
                 "warning_data_available":
                     False,
-                "reason":
-                    "District could not be identified"
-            }
-        }
 
-    if district.lower() != "khordha":
-        return {
-            "location":
-                location_data,
+                "warning_count":
+                    0,
 
-            "metadata": {
-                "source":
-                    "IMD",
-                "source_type":
-                    "official_warning"
-            },
+                "request_latency_seconds":
+                    result.get(
+                        "latency_seconds"
+                    ),
 
-            "warnings": [],
+                "from_cache":
+                    result.get(
+                        "from_cache",
+                        False
+                    ),
 
-            "data_quality": {
-                "warning_data_available":
+                "fallback_used":
                     False,
-                "reason":
-                    (
-                        "Automated IMD warning "
-                        "source is not configured "
-                        "for this district yet"
+
+                "provider_error":
+                    result.get(
+                        "status_code"
                     )
             }
         }
 
-    try:
-        with open(
-            "imd_warning.json",
-            "r"
-        ) as file:
-            warning = json.load(file)
+    data = result["data"]
 
-    except FileNotFoundError:
-        return {
-            "location":
-                location_data,
+    # --------------------------------------------------------
+    # NORMALIZE NDMA RESPONSE
+    # --------------------------------------------------------
 
-            "metadata": {
-                "source":
-                    "IMD",
-                "source_type":
-                    "official_warning"
-            },
+    if isinstance(data, list):
 
-            "warnings": [],
+        warnings = data
 
-            "data_quality": {
-                "warning_data_available":
-                    False,
-                "reason":
-                    "imd_warning.json not found"
-            }
-        }
+    elif isinstance(data, dict):
+
+        if isinstance(
+            data.get("alerts"),
+            list
+        ):
+
+            warnings = data[
+                "alerts"
+            ]
+
+        elif isinstance(
+            data.get("data"),
+            list
+        ):
+
+            warnings = data[
+                "data"
+            ]
+
+        elif isinstance(
+            data.get("results"),
+            list
+        ):
+
+            warnings = data[
+                "results"
+            ]
+
+        elif isinstance(
+            data.get("alert"),
+            list
+        ):
+
+            warnings = data[
+                "alert"
+            ]
+
+        elif data:
+
+            warnings = [data]
+
+        else:
+
+            warnings = []
+
+    else:
+
+        warnings = []
 
     return {
+
         "location":
             location_data,
 
         "metadata": {
+
             "source":
-                "IMD",
+                "NDMA SACHET",
+
             "source_type":
-                "official_warning"
+                "official_warning",
+
+            "retrieved_at":
+                datetime.now()
+                .astimezone()
+                .isoformat(),
+
+            "request_latency_seconds":
+                result[
+                    "latency_seconds"
+                ],
+
+            "from_cache":
+                result[
+                    "from_cache"
+                ],
+
+            "cache_age_seconds":
+                result[
+                    "cache_age_seconds"
+                ],
+
+            "search_radius_km":
+                20
         },
 
-        "warnings": [
-            warning
-        ],
+        "warnings":
+            warnings,
 
         "data_quality": {
+
             "warning_data_available":
                 True,
 
-            "warning_timestamps_missing": (
-                warning.get("issued_at") is None
-                or warning.get("valid_from") is None
-                or warning.get("valid_until") is None
-            )
+            "warning_count":
+                len(warnings),
+
+            "request_latency_seconds":
+                result[
+                    "latency_seconds"
+                ],
+
+            "from_cache":
+                result[
+                    "from_cache"
+                ],
+
+            "fallback_used":
+                False
         }
     }
 
@@ -1349,8 +2124,11 @@ def weather_warnings(
 # AIR QUALITY
 # ============================================================
 
-@app.get("/api/v1/weather/air-quality")
+@app.get(
+    "/api/v1/weather/air-quality"
+)
 def air_quality(
+
     lat: float = Query(...),
     lon: float = Query(...)
 ):
@@ -1361,10 +2139,15 @@ def air_quality(
     )
 
     params = {
-        "latitude": lat,
-        "longitude": lon,
+
+        "latitude":
+            lat,
+
+        "longitude":
+            lon,
 
         "current": (
+
             "european_aqi,"
             "pm2_5,"
             "pm10,"
@@ -1372,7 +2155,8 @@ def air_quality(
             "ozone"
         ),
 
-        "timezone": "auto"
+        "timezone":
+            "auto"
     }
 
     result = cached_request(
@@ -1381,24 +2165,43 @@ def air_quality(
     )
 
     if result.get("error"):
+
         return {
+
             "error":
                 "Air quality provider request failed",
+
             "status_code":
-                result.get("status_code"),
+                result.get(
+                    "status_code"
+                ),
+
             "latency_seconds":
-                result.get("latency_seconds"),
+                result.get(
+                    "latency_seconds"
+                ),
+
             "message":
-                result.get("message")
+                result.get(
+                    "message"
+                )
         }
 
     data = result["data"]
-    current = data["current"]
-    latency = result["latency_seconds"]
 
-    location_data = get_location_metadata(
-        lat,
-        lon
+    current = data["current"]
+
+    latency = (
+        result[
+            "latency_seconds"
+        ]
+    )
+
+    location_data = (
+        get_location_metadata(
+            lat,
+            lon
+        )
     )
 
     location_data["timezone"] = (
@@ -1406,52 +2209,87 @@ def air_quality(
     )
 
     if data.get("elevation") is not None:
-        location_data["elevation_m"] = (
-            data["elevation"]
-        )
+
+        location_data[
+            "elevation_m"
+        ] = data[
+            "elevation"
+        ]
 
     return {
+
         "location":
             location_data,
 
         "metadata": {
+
             "source":
                 "Open-Meteo Air Quality",
+
             "source_type":
                 "air_quality",
+
             "retrieved_at":
                 datetime.now()
                 .astimezone()
                 .isoformat(),
+
             "request_latency_seconds":
                 latency,
+
             "from_cache":
-                result["from_cache"],
+                result[
+                    "from_cache"
+                ],
+
             "cache_age_seconds":
-                result["cache_age_seconds"]
+                result[
+                    "cache_age_seconds"
+                ]
         },
 
         "air_quality": {
+
             "aqi":
-                current["european_aqi"],
+                current[
+                    "european_aqi"
+                ],
+
             "aqi_standard":
                 "European AQI",
+
             "pm25_ug_m3":
-                current["pm2_5"],
+                current[
+                    "pm2_5"
+                ],
+
             "pm10_ug_m3":
-                current["pm10"],
+                current[
+                    "pm10"
+                ],
+
             "no2_ug_m3":
-                current["nitrogen_dioxide"],
+                current[
+                    "nitrogen_dioxide"
+                ],
+
             "o3_ug_m3":
-                current["ozone"]
+                current[
+                    "ozone"
+                ]
         },
 
         "data_quality": {
+
             "missing_parameters": [],
+
             "request_latency_seconds":
                 latency,
+
             "from_cache":
-                result["from_cache"]
+                result[
+                    "from_cache"
+                ]
         }
     }
 
@@ -1464,34 +2302,47 @@ def air_quality(
     "/api/v1/weather/test-weatherapi-forecast"
 )
 def test_weatherapi_forecast(
+
     lat: float = Query(...),
     lon: float = Query(...)
 ):
 
-    result = get_weatherapi_forecast(
-        lat,
-        lon
+    result = (
+        get_weatherapi_forecast(
+            lat,
+            lon
+        )
     )
 
     if result.get("error"):
+
         return result
 
     return {
+
         "source":
             "WeatherAPI",
 
         "from_cache":
-            result["from_cache"],
+            result[
+                "from_cache"
+            ],
 
         "latency_seconds":
-            result["latency_seconds"],
+            result[
+                "latency_seconds"
+            ],
 
         "cache_age_seconds":
-            result["cache_age_seconds"],
+            result[
+                "cache_age_seconds"
+            ],
 
         "forecast":
             convert_weatherapi_forecast(
-                result["data"]
+                result[
+                    "data"
+                ]
             )
     }
 
@@ -1500,8 +2351,11 @@ def test_weatherapi_forecast(
 # COMPLETE
 # ============================================================
 
-@app.get("/api/v1/weather/complete")
+@app.get(
+    "/api/v1/weather/complete"
+)
 def complete_weather(
+
     lat: float = Query(...),
     lon: float = Query(...)
 ):
@@ -1537,66 +2391,87 @@ def complete_weather(
     )
 
     if "error" in current:
+
         return current
 
+    if "error" in nwp:
+
+        return nwp
+
     if "error" in air_quality_data:
+
         return air_quality_data
 
-    current_source_values = current.get(
-        "source_values",
-        {}
+    warning_list = warnings.get(
+        "warnings",
+        []
     )
 
-    if weatherapi.get("values"):
-        current_source_values["WeatherAPI"] = (
-            weatherapi["values"]
-        )
-
     return {
+
         "location":
-            current["location"],
+            current[
+                "location"
+            ],
 
         "metadata": {
+
             "generated_at":
-                current["metadata"]["generated_at"],
+                current[
+                    "metadata"
+                ][
+                    "generated_at"
+                ],
+
             "source":
                 "Multiple sources",
+
             "source_type":
                 "combined",
+
             "retrieved_at":
-                current["metadata"]["retrieved_at"]
+                current[
+                    "metadata"
+                ][
+                    "retrieved_at"
+                ]
         },
 
         "current_weather":
-            current["current_weather"],
+            current[
+                "current_weather"
+            ],
 
         "forecast":
             forecast.get(
+
                 "forecast",
+
                 {
+
                     "hourly": [],
+
                     "daily": []
                 }
             ),
 
         "model_forecasts":
-            nwp.get(
-                "model_forecasts",
-                {}
-            ),
+            nwp[
+                "model_forecasts"
+            ],
 
         "warnings":
-            warnings.get(
-                "warnings",
-                []
-            ),
+            warning_list,
 
         "air_quality":
-            air_quality_data["air_quality"],
+            air_quality_data[
+                "air_quality"
+            ],
 
         "sources": {
+
             "current_weather":
-                current["metadata"]["source"],
+                "Open-Meteo",
 
             "forecast":
                 forecast.get(
@@ -1611,7 +2486,7 @@ def complete_weather(
                 "GFS via Open-Meteo",
 
             "warnings":
-                "IMD",
+                "NDMA SACHET",
 
             "air_quality":
                 "Open-Meteo Air Quality",
@@ -1621,7 +2496,97 @@ def complete_weather(
         },
 
         "source_values": {
-            **current_source_values,
+
+            "Open-Meteo": {
+
+                "temperature_c":
+                    current[
+                        "current_weather"
+                    ][
+                        "temperature"
+                    ][
+                        "value"
+                    ],
+
+                "humidity_pct":
+                    current[
+                        "current_weather"
+                    ][
+                        "humidity"
+                    ][
+                        "value"
+                    ],
+
+                "pressure_hpa":
+                    current[
+                        "current_weather"
+                    ][
+                        "pressure"
+                    ][
+                        "value"
+                    ],
+
+                "wind_speed_kmh":
+                    current[
+                        "current_weather"
+                    ][
+                        "wind"
+                    ][
+                        "speed"
+                    ],
+
+                "wind_direction_deg":
+                    current[
+                        "current_weather"
+                    ][
+                        "wind"
+                    ][
+                        "direction"
+                    ],
+
+                "precipitation_mm":
+                    current[
+                        "current_weather"
+                    ][
+                        "precipitation"
+                    ][
+                        "last_1h_mm"
+                    ],
+
+                "cloud_cover_pct":
+                    current[
+                        "current_weather"
+                    ][
+                        "cloud_cover"
+                    ][
+                        "value"
+                    ],
+
+                "feels_like_c":
+                    current[
+                        "current_weather"
+                    ][
+                        "feels_like"
+                    ][
+                        "value"
+                    ],
+
+                "visibility_km":
+                    current[
+                        "current_weather"
+                    ][
+                        "visibility"
+                    ][
+                        "value"
+                    ],
+
+                "uv_index":
+                    current[
+                        "current_weather"
+                    ][
+                        "uv_index"
+                    ]
+            },
 
             "WeatherAPI":
                 weatherapi.get(
@@ -1630,16 +2595,16 @@ def complete_weather(
                 ),
 
             "GFS":
-                nwp.get(
-                    "model_forecasts",
-                    {}
-                ).get(
-                    "GFS",
-                    {}
-                ),
+                nwp[
+                    "model_forecasts"
+                ][
+                    "GFS"
+                ],
 
             "AirQuality":
-                air_quality_data["air_quality"]
+                air_quality_data[
+                    "air_quality"
+                ]
         },
 
         "data_quality": {
@@ -1654,23 +2619,31 @@ def complete_weather(
                 ),
 
             "source_reliability": {
+
                 "Open-Meteo":
                     "unknown",
+
                 "WeatherAPI":
                     "unknown",
+
                 "GFS":
                     "unknown",
-                "IMD":
-                    "unknown",
+
+                "NDMA_SACHET":
+                    "official",
+
                 "AirQuality":
                     "unknown"
             },
 
             "source_latency_seconds": {
 
-                "Current":
-                    current["metadata"]
-                    ["request_latency_seconds"],
+                "Open-Meteo_current":
+                    current[
+                        "metadata"
+                    ][
+                        "request_latency_seconds"
+                    ],
 
                 "Forecast":
                     forecast.get(
@@ -1686,23 +2659,36 @@ def complete_weather(
                     ),
 
                 "GFS":
-                    nwp.get(
+                    nwp[
+                        "metadata"
+                    ][
+                        "request_latency_seconds"
+                    ],
+
+                "AirQuality":
+                    air_quality_data[
+                        "metadata"
+                    ][
+                        "request_latency_seconds"
+                    ],
+
+                "NDMA_SACHET":
+                    warnings.get(
                         "metadata",
                         {}
                     ).get(
                         "request_latency_seconds"
-                    ),
-
-                "AirQuality":
-                    air_quality_data["metadata"]
-                    ["request_latency_seconds"]
+                    )
             },
 
             "source_cache_status": {
 
-                "Current":
-                    current["metadata"]
-                    ["from_cache"],
+                "Open-Meteo_current":
+                    current[
+                        "metadata"
+                    ][
+                        "from_cache"
+                    ],
 
                 "Forecast":
                     forecast.get(
@@ -1713,81 +2699,44 @@ def complete_weather(
                     ),
 
                 "GFS":
-                    nwp.get(
-                        "metadata",
-                        {}
-                    ).get(
-                        "from_cache",
-                        False
-                    ),
+                    nwp[
+                        "metadata"
+                    ][
+                        "from_cache"
+                    ],
 
                 "AirQuality":
-                    air_quality_data["metadata"]
-                    ["from_cache"],
+                    air_quality_data[
+                        "metadata"
+                    ][
+                        "from_cache"
+                    ],
 
                 "WeatherAPI":
                     weatherapi.get(
                         "from_cache",
                         False
+                    ),
+
+                "NDMA_SACHET":
+                    warnings.get(
+                        "metadata",
+                        {}
+                    ).get(
+                        "from_cache",
+                        False
                     )
             },
 
-            "current_fallback_used":
-                current["metadata"].get(
-                    "fallback",
-                    False
+            "warning_count":
+                len(
+                    warning_list
                 ),
 
-            "current_fallback_source":
-                current["metadata"].get(
-                    "source"
-                )
-                if current["metadata"].get(
-                    "fallback",
-                    False
-                )
-                else None,
-
-            "forecast_fallback_used":
-                forecast.get(
-                    "metadata",
-                    {}
-                ).get(
-                    "fallback",
-                    False
-                ),
-
-            "forecast_provider_error":
-                forecast.get(
-                    "metadata",
-                    {}
-                ).get(
-                    "fallback_reason"
-                ),
+            "warning_data_available":
+                True,
 
             "nwp_available":
-                nwp.get(
-                    "available",
-                    False
-                ),
-
-            "nwp_provider_error":
-                nwp.get(
-                    "error"
-                ),
-
-            "nwp_status_code":
-                nwp.get(
-                    "status_code"
-                ),
-
-            "warning_timestamps_missing":
-                warnings.get(
-                    "data_quality",
-                    {}
-                ).get(
-                    "warning_timestamps_missing",
-                    True
-                )
+                "model_forecasts" in nwp
         }
-    }       
+    }
